@@ -1,6 +1,6 @@
 [project]
 name = "geocitysorter"
-version = "0.5.0"
+version = "0.5.2"
 authors = [
   { name="Tony Rice", email="rtphokie+pypi@gmail.com" },
 ]
@@ -12,7 +12,13 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
+dependencies = [
+  "geopandas>=0.14.1",
+  "requests>=2.31.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/rtphokie/geocitysorter"
 Issues = "https://github.com/rtphokie/geocitysorter/issues"
+
+# https://packaging.python.org/en/latest/tutorials/packaging-projects/

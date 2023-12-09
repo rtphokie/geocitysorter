@@ -1,6 +1,1 @@
-[build-system]
-requires = [
-    "setuptools>=58"
-]
-
-build-backend = "setuptools.build_meta"
+from example import add_one
