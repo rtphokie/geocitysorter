@@ -1,2 +1,4 @@
+# for local testing
 geopandas
 requests
+matplotlib
