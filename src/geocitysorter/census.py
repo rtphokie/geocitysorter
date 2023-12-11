@@ -18,10 +18,10 @@ def census_incorporated_cities(crs = "EPSG:4326", columnstokeep=['CITY', 'STATE'
     os.makedirs('cache', exist_ok=True)
     picklefile = 'cache/census_incorporated_cities.pickle'
     try:
+        raise
         with open(picklefile, 'rb') as fp:
             gdf = pickle.load(fp)
     except:
-        print('redoing')
         df_pop = _get_census_data()
         colstokeep = ['STATE', 'NAME', 'STNAME', 'settlement', 'POPULATION']
         popcols = []
@@ -37,8 +37,9 @@ def census_incorporated_cities(crs = "EPSG:4326", columnstokeep=['CITY', 'STATE'
         df['CITY'] = df.BASENAME
         df['STATE'] = df.STNAME
         df=df[columnstokeep]
+        df.drop_duplicates(inplace=True)
         df.dropna(subset=['CENTLAT', 'CENTLON'], inplace=True)
-        gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.CENTLON, df.CENTLON), crs=crs)
+        gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.CENTLON, df.CENTLAT), crs=crs)
         with open(picklefile, 'wb') as fp:
             pickle.dump(gdf, fp)
     return gdf

@@ -3,7 +3,6 @@ import os
 import pandas as pd
 from tqdm import tqdm
 
-from .citycoords import get_city_coords
 from .populations import get_census_data
 from .census import census_incorporated_cities
 
