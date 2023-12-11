@@ -1,18 +1,12 @@
-import os
-from pprint import pprint
-import numpy as np
-import geopandas as gpd
 import unittest
+
+import geopandas as gpd
 import pandas as pd
-# import zipfile
-# import pickle
-import matplotlib.pyplot as plt
-from geocitysorter import _download_file, get_census_data, get_city_coords, _geocode, main
+
+from geocitysorter import census_incorporated_cities
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', None)
-
-import requests
 
 
 # https://www2.census.gov/geo/tiger/GENZ2018/shp/cb_2018_us_region_20m.zip
@@ -24,45 +18,33 @@ class SomeTest(unittest.TestCase):
         super(SomeTest, cls).tearDownClass()
         # os.system('pip uninstall -y geocitysorter')
 
-    @classmethod
-    def setUpClass(cls):
-        super(SomeTest, cls).setUpClass()
-        # os.system('cd ..; python3 -m build --wheel')
-        # os.system('cd ..; pip install --upgrade dist/*whl')
-        # os.system('cd ..; pip install --force-reinstall dist/*whl')
+    # @classmethod
+    # def setUpClass(cls):
+    #     super(SomeTest, cls).setUpClass()
+    #     # os.system('cd ..; python3 -m build --wheel')
+    #     # os.system('cd ..; pip install --upgrade dist/*whl')
+    #     # os.system('cd ..; pip install --force-reinstall dist/*whl')
+    #
+    # def setUp(self):
+    #     # US states, from Census Bureau
+    #     _download_file('https://www2.census.gov/geo/tiger/GENZ2018/shp/cb_2018_us_state_20m.zip')
+    #     _download_file('https://raw.githubusercontent.com/kelvins/US-Cities-Database/main/csv/us_cities.csv')
+    #
 
-    def setUp(self):
-        # US states, from Census Bureau
-        _download_file('https://www2.census.gov/geo/tiger/GENZ2018/shp/cb_2018_us_state_20m.zip')
-        _download_file('https://raw.githubusercontent.com/kelvins/US-Cities-Database/main/csv/us_cities.csv')
+    def test_census(self):
+        gdf = census_incorporated_cities()
+        self.assertGreaterEqual(99999, gdf.shape[0])
+        gdf.to_file('../data/incorporated_cities_uscensus.json', driver="GeoJSON")
+        gdf_lower48 = gdf[~gdf.STATE.isin(['Alaska', 'Hawaii', 'Puerto Rico'])]
+        gdf_lower48.to_file('../data/incorporated_cities_uscensus_lower48.json', driver="GeoJSON")
+        gdf[gdf.POPULATION >= 10000].to_file('../data/incorporated_cities_uscensus_min.json', driver="GeoJSON")
 
-    def testuscbcities(self):
-        df = get_census_data()
-        self.assertEqual(19466, df.shape[0])  # this is the
-        print(df)
+    def test_census2(self):
+        gdf = gpd.read_file('../data/incorporated_cities_uscensus_min.json')
+        gdf.sort_values(by=['POPULATION'], inplace=True, ascending=False)
 
-    def testcoords(self):
-        df = get_city_coords()
-        self.assertEqual(29880, df.shape[0])
-        print(df)
+        print(gdf)
 
-    def testmerge(self):
-        main()
-
-    def testjkl(self):
-        foo = _geocode('Credit River Township, Minnesota', use_cache=False)
-        pprint(foo)
-
-
-    def testgeocode(self):
-        from pprint import pprint
-        data = _geocode('Raleigh, NC')
-        print(data['from_cache'])
-        self.assertAlmostEqual(35.78, data['lat'], 2)
-        self.assertAlmostEqual(-78.64, data['lng'], 2)
-        self.assertTrue('Raleigh' in data['display_name'])
-        data = _geocode('Raleigh, NC')
-        self.assertTrue(data['from_cache'])
 
 # def test_one(self):
 #

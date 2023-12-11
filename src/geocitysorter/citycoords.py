@@ -3,7 +3,7 @@ import geopandas as gpd
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
-from .utils import _download_file
+from .census import _download_file
 
 
 

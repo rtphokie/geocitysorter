@@ -3,3 +3,5 @@ geopandas
 requests
 matplotlib
 tqdm
+lxml
+html5lib
