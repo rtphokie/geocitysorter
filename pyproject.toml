@@ -1,6 +1,6 @@
 [project]
 name = "geocitysorter"
-version = "0.5.2"
+version = "0.5.3"
 authors = [
   { name="Tony Rice", email="rtphokie+pypi@gmail.com" },
 ]
@@ -15,6 +15,7 @@ classifiers = [
 dependencies = [
   "geopandas>=0.14.1",
   "requests>=2.31.0",
+  "requests_cache",
 ]
 
 [project.urls]
