@@ -161,3 +161,4 @@ cython_debug/
 /venv2/
 /venv/
 .idea/
+**/cache/
