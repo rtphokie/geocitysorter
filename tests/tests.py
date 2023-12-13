@@ -1,10 +1,9 @@
-import os
 import unittest
 
 import geopandas as gpd
 import pandas as pd
 
-from geocitysorter import census_incorporated_cities
+from geocitysorter import census_incorporated_cities, main
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', None)
@@ -26,29 +25,32 @@ class SomeTest(unittest.TestCase):
         # os.system('cd ..; pip install --upgrade dist/*whl')
         # os.system('cd ..; pip install --force-reinstall dist/*whl')
 
-
-
     def test_census(self):
         gdf = census_incorporated_cities()
         self.assertEqual(19820, gdf.shape[0])
         gdf.to_file('../data/incorporated_cities_uscensus.json', driver="GeoJSON")
-        gdf_lower48 = gdf[~gdf.STATE.isin(['Alaska', 'Hawaii', 'Puerto Rico'])]
+        gdf_lower48 = gdf[~gdf.state.isin(['Alaska', 'Hawaii', 'Puerto Rico'])]
         gdf_lower48.to_file('../data/incorporated_cities_uscensus_lower48.json', driver="GeoJSON")
-        gdf_lower48[gdf_lower48.POPULATION >= 10000].to_file('../data/incorporated_cities_uscensus_min.json', driver="GeoJSON")
+        print(gdf_lower48)
+        gdf_lower48[gdf_lower48.population >= 10000].to_file('../data/incorporated_cities_uscensus_min.json',
+                                                             driver="GeoJSON")
 
     def test_census2(self):
         gdf = gpd.read_file('../data/incorporated_cities_uscensus_min.json')
-        gdf.sort_values(by=['POPULATION'], inplace=True, ascending=False)
+        gdf.sort_values(by=['population'], inplace=True, ascending=False)
         self.assertEqual(3198, gdf.shape[0])
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(12, 9))
-        # gdf[gdf.STATE=='North Carolina'].plot(ax=ax)
+        # gdf[gdf.state=='North Carolina'].plot(ax=ax)
         gdf.plot(ax=ax)
         plt.show()
         #     gdf_cities_to_plot[(gdf_cities_to_plot.population <= 15000) & (gdf_cities_to_plot.population > 10000)].plot(ax=ax, color='pink')
 
-
         print(gdf)
+
+    def test_main(self):
+        main()
+
 
 #
 #     # build geopandas dataframe of US States from Census Bureau shape files

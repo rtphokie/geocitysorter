@@ -1,10 +1,9 @@
 import io
 import os
 import pickle
-import shelve
-import geopandas as gpd
 import zipfile
 
+import geopandas as gpd
 import pandas as pd
 import requests
 import requests_cache
@@ -12,76 +11,91 @@ import requests_cache
 session = requests_cache.CachedSession('./cache/http_census_gov.cache')
 
 
-def census_incorporated_cities(crs = "EPSG:4326", columnstokeep=['CITY', 'STATE', 'settlement',
-                                                                 'POPULATION', 'AREALAND', 'AREAWATER',
-                                                                 'CENTLAT', 'CENTLON']):
+def _most_recent_population_column(colstoconsider):
+    # sorts a list of column names, returning the alphabetically last one
+    # useful in picking the most recent population column from USCB CSVs
+    popcols = []
+    for col in colstoconsider:
+        if 'POP' in col:
+            popcols.append(col)
+    popcols = sorted(popcols)
+    latestpopcol = popcols[-1]
+    return latestpopcol
+
+
+def census_incorporated_cities(crs="EPSG:4326",
+                               columnstokeep=['city', 'state', 'population', 'area_land', 'area_water', 'latitude',
+                                              'longitude']):
+    '''
+
+    fetches population and coordinate data for nearly 20k incorporated cities from the United States Census Bureau and
+    merges them into a GeoPandas Dataframe with columns for city, state, latest population estimate, latitude, longitude
+    along with land and water size information.
+
+    :param crs: coordinate reference system to apply to resulting GeoDataFrame, defaults to ESPG:4326 the familiar
+                latitude/longitude coordinate system based on the Earth's center of mass
+    :param columnstokeep: columns to be returned, defaults to the list above
+    :return:GeoPandas Dataframe of incorporated cities
+    '''
     os.makedirs('cache', exist_ok=True)
     picklefile = 'cache/census_incorporated_cities.pickle'
     try:
-        raise
         with open(picklefile, 'rb') as fp:
             gdf = pickle.load(fp)
     except:
         df_pop = _get_census_data()
-        colstokeep = ['STATE', 'NAME', 'STNAME', 'settlement', 'POPULATION']
-        popcols = []
-        for col in df_pop.columns:
-            if 'POP' in col:
-                popcols.append(col)
-        popcols = sorted(popcols)
-        df_pop['POPULATION'] = df_pop[popcols[-1]]  # use latest population estimate
-        df_pop = df_pop[colstokeep]  # filter useful columns
+        df_pop['population'] = df_pop[most_recent_population_column(df_pop.columns)]
+
         df_coords = _get_census_incorporated_places()
-        df_coords = df_coords[['BASENAME', 'NAME', 'AREALAND', 'AREAWATER', 'CENTLAT', 'CENTLON', 'STNAME']]
+
         df = pd.merge(df_pop, df_coords, on=['NAME', 'STNAME'], how='left')
-        df['CITY'] = df.BASENAME
-        df['STATE'] = df.STNAME
-        df=df[columnstokeep]
-        df.drop_duplicates(inplace=True)
-        df.dropna(subset=['CENTLAT', 'CENTLON'], inplace=True)
-        gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.CENTLON, df.CENTLAT), crs=crs)
+        df.rename(columns={"NAME": "city", "STNAME": "state",
+                           "AREALAND": 'area_land', "AREAWATER": 'area_water',  # these might be useful
+                           "CENTLAT": "latitude", "CENTLON": "longitude",
+                           }, errors="raise", inplace=True)
+        df = df[columnstokeep]
+        df.drop_duplicates(
+            inplace=True)  # USCB population data includes some breakouts by county and other methods that result in duplicate data when we drop the other fields we dont need
+        df.dropna(subset=['longitude', 'latitude'], inplace=True)
+        gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.longitude, df.latitude), crs=crs)
         with open(picklefile, 'wb') as fp:
             pickle.dump(gdf, fp)
     return gdf
 
 
-def _download_file(url):
-    os.makedirs('cache', exist_ok=True)
-    local_filename = f"cache/{os.path.basename(url)}"
-    result = local_filename
-    local_extraction_dir = f"cache/{os.path.splitext(os.path.basename(os.path.basename(url)))[0]}"
-
-    if not os.path.exists(local_filename):
-        response = requests.get(url)
-
-        if response.status_code == 200:
-            print(local_filename)
-            with open(local_filename, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=1024):
-                    if chunk:
-                        f.write(chunk)
-            print(f'downloaded {local_filename} from {url}')
-    if local_filename.endswith('.zip') and not os.path.exists(local_extraction_dir):
-        with zipfile.ZipFile(local_filename, 'r') as zip_ref:
-            zip_ref.extractall(local_extraction_dir)
-            result = local_extraction_dir
-    return result
-
-
 def _get_census_data(
         url='https://www2.census.gov/programs-surveys/popest/datasets/2020-2022/cities/totals/sub-est2022.csv'):
+    '''
+    fetches general purpose population dataset from United States Census Bureau
+
+    more info on the dataset: https://www.census.gov/data/tables/time-series/demo/popest/2020s-total-cities-and-towns.html
+
+    :param url: url to fetch data from, defaults to 2022 data set
+    :return: pandas dataframe with all dat
+    '''
+
     os.makedirs('cache', exist_ok=True)
 
     r = session.get(url)
     if r.ok:
         df_populations = pd.read_csv(io.StringIO(r.text))
-        df_populations['settlement'] = df_populations.NAME.str.rsplit(' ').str[-1]
     else:
         raise BaseException(f"error {r.status_code} accessing {url}")
     return df_populations
 
 
 def _get_census_incorporated_places(url='https://tigerweb.geo.census.gov/tigerwebmain/TIGERweb_incplace_current.html'):
+    '''
+
+    Retrieves state based tables of incorporated places from teh United States Census Bureau's Topologically Integrated
+    Geographic Encoding and Referencing (TIGER), combining them into a single dataframe with city, state, longitude,
+    and latitude.
+
+    for more information on the dataset see the URL above
+
+    :param url:
+    :return: pandas dataframe (not a GeoPandas dataframe)
+    '''
     os.makedirs('cache', exist_ok=True)
     picklefile = 'cache/_get_census_incorporated_places.pickle'
     try:
@@ -105,13 +119,37 @@ def _get_census_incorporated_places(url='https://tigerweb.geo.census.gov/tigerwe
                 if not 'No Data' in r.text:
                     import io
                     df = pd.concat(pd.read_html(io.StringIO(r.text)))
-                    df['STNAME'] = state
+                    df['STNAME'] = state  # add a state column, using similar name as population data tables
                     df_incorporated_places = pd.concat([df_incorporated_places, df])
         with open(picklefile, 'wb') as fp:
             pickle.dump(df_incorporated_places, fp)
 
     return df_incorporated_places
-#
+
+
+def _download_file(url):
+    # downloads a binary or text file from a URL, caching it locally
+    os.makedirs('cache', exist_ok=True)
+    local_filename = f"cache/{os.path.basename(url)}"
+    result = local_filename
+    local_extraction_dir = f"cache/{os.path.splitext(os.path.basename(os.path.basename(url)))[0]}"
+
+    if not os.path.exists(local_filename):
+        response = requests.get(url)
+
+        if response.status_code == 200:
+            print(local_filename)
+            with open(local_filename, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=1024):
+                    if chunk:
+                        f.write(chunk)
+            print(f'downloaded {local_filename} from {url}')
+    if local_filename.endswith('.zip') and not os.path.exists(local_extraction_dir):
+        with zipfile.ZipFile(local_filename, 'r') as zip_ref:
+            zip_ref.extractall(local_extraction_dir)
+            result = local_extraction_dir
+    return result
+
 #
 # def _get_coords_from_wikipedia(s):
 #     url = f"https://en.wikipedia.org/wiki/{s}"
