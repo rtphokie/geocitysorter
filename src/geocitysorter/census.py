@@ -44,12 +44,12 @@ def census_incorporated_cities(crs="EPSG:4326",
             gdf = pickle.load(fp)
     except:
         df_pop = _get_census_data()
-        df_pop['population'] = df_pop[most_recent_population_column(df_pop.columns)]
+        df_pop['population'] = df_pop[_most_recent_population_column(df_pop.columns)]
 
         df_coords = _get_census_incorporated_places()
 
         df = pd.merge(df_pop, df_coords, on=['NAME', 'STNAME'], how='left')
-        df.rename(columns={"NAME": "city", "STNAME": "state",
+        df.rename(columns={"BASENAME": "city", "STNAME": "state",
                            "AREALAND": 'area_land', "AREAWATER": 'area_water',  # these might be useful
                            "CENTLAT": "latitude", "CENTLON": "longitude",
                            }, errors="raise", inplace=True)

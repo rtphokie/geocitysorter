@@ -2,7 +2,7 @@
 name = "geocitysorter"
 version = "0.5.4"
 authors = [
-  { name="Tony Rice", email="rtphokie+pypi@gmail.com" },
+    { name = "Tony Rice", email = "rtphokie+pypi@gmail.com" },
 ]
 description = "geographic relevance sorter for geopandas dataframes"
 readme = "README.md"
@@ -13,9 +13,10 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-  "geopandas>=0.14.1",
-  "requests>=2.31.0",
-  "requests_cache",
+    "geopandas>=0.14.1",
+    "requests>=2.31.0",
+    "requests_cache",
+    "geopy>=2.4.1"
 ]
 
 [project.urls]
