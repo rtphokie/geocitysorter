@@ -49,7 +49,24 @@ class SomeTest(unittest.TestCase):
         print(gdf)
 
     def test_main(self):
-        main()
+        # df = census_incorporated_cities()
+        import geopandas as gpd
+        gdf = gpd.read_file('../data/incorporated_cities_uscensus_min.json')
+
+        state = "North Carolina"
+        state = "Virginia"
+        gdf = gdf[gdf.state == state]
+        gdf_orderd=main(gdf)
+        print(gdf)
+        print(gdf_orderd)
+        self.assertEqual(gdf.shape,gdf_orderd.shape)
+        crs = "EPSG:4326"
+        import geopandas as gpd
+        gdf_orderd = gpd.GeoDataFrame(gdf_orderd, geometry=gpd.points_from_xy(gdf_orderd.longitude, gdf_orderd.latitude), crs=crs)
+        print(gdf_orderd)
+        import os
+        os.makedirs('../data', exist_ok=True)
+        gdf.to_file('../data/cities_uscb.json', driver="GeoJSON")
 
 
 #

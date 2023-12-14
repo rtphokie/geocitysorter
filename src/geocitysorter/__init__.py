@@ -10,7 +10,7 @@ pd.set_option('display.max_rows', None)
 # https://packaging.python.org/en/latest/tutorials/packaging-projects/
 #
 
-def main(rings=5, order='furthest'):
+def main(df, rings=5, order='furthest', valuecolumn='population'):
     '''
     offers a tool to help identify the right points to label on a map, not just by population or distance, but a
     combination of the two.
@@ -29,8 +29,10 @@ def main(rings=5, order='furthest'):
     most populated city in the outer (or inner or mid, see the order option) is added next in the order.  This
     repeated until all cities are ordered.  Cities at the bottom are very close to the cities on the top.
 
+    This is not an efficient routine
 
-    :param df:    Pandas (or GeoPandas) dataframe containing at minimum: city, state, population, latitude, longitude
+
+    :param df:   Pandas (or GeoPandas) dataframe containing at minimum: city, state, population, latitude, longitude
                   columns
                   todo: optionally derive latitude and longitude columns from centroid of geometry column in
                         GeoPandas dataframe
@@ -38,49 +40,87 @@ def main(rings=5, order='furthest'):
     :param rings: number of rings to logically draw around each city when generalizing distance between a given city and
                   the others that have already been ordered as more "relevant".  (default: 5)
     :param order: how the next point is selected
-                  furthest: the most populous city in the furthest ring
-                  nearest: the most populous city in the nearest ring
-                  mid: the most populous city in the middle ring
+                  furthest: the most populous city in the furthest ring, useful for intelligently ordering
+                            points on a map by population (the point of this function)
+                  nearest: the most populous city in the nearest ring, useful for finding the most relevant
+                           point "near" a given point such as the largest city nearby
+                  central: the most populous city in the middle ring, seemed a useful option to include
 
     :return: ordered pandas (or geopandas) dataframe
     '''
-    # df = census_incorporated_cities()
-    import geopandas as gpd
-    gdf = gpd.read_file('../data/incorporated_cities_uscensus_min.json')
-    gdf = gdf[gdf.state == 'North Carolina']
-    gdf.sort_values(by='population', ascending=False, inplace=True)
-    gdf['id'] = gdf.city + gdf.state + gdf.population.astype(str)  # unique identifier
 
-    gdf_ordered = pd.DataFrame([gdf.iloc[0]])
-    gdf = gdf[~gdf.id.isin(gdf_ordered.id.unique())]
-    gdf['dist'] = 0
+    if 'city' not in df.columns or 'state' not in df.columns:
+        raise ValueError(f"expected city and state columns")
 
-    # for id, lng, lat in zip(gdf_ordered.id, gdf_ordered.longitude, gdf_ordered.latitude):
-    #     print(id, lng, lat)
-    gdf_distances = pd.DataFrame()
 
-    # find distances to each of the remaining cities from the cities that have already been ordered
-    for n, labeled_row in gdf_ordered.iterrows():
-        gdf['dist'] = gdf.apply(lambda row: geopy.distance.geodesic((labeled_row['latitude'], labeled_row['longitude']),
+    df.sort_values(by=valuecolumn, ascending=False, inplace=True)
+    df['id'] = df.city + df.state + df.population.astype(str)  # unique identifier
+
+    if order == 'furthest':
+        df_ordered = pd.DataFrame([df.iloc[0]])
+    elif order == 'nearest':
+        raise ValueError(f"{order} ordering not yet implemented")
+    elif order == 'central':
+        raise ValueError(f"{order} ordering not yet implemented")
+    else:
+        raise ValueError(f"{order} not supported, please specify one of nearest (default), furthest, or central")
+
+
+    df_distances = pd.DataFrame()
+    while df.shape[0] > 0:
+        # remove cities already ordered from the todo list, and the running list of distances to cities yet to be ordered
+        df = df[~df.id.isin(df_ordered.id.unique())]
+        if df_distances.shape[0] > 0:
+            df_distances = df_distances[~df_distances.id.isin(df_ordered.id.unique())]
+
+        print(df.shape[0], df_distances.shape[0], df_ordered.shape[0])
+
+        # calculated distance to the remaining cities from the one most recently added to the ordered list
+        labeled_row=df_ordered.iloc[-1]
+        # find distances to each of the remaining cities from the cities that have already been ordered
+        df['dist'] = df.apply(lambda row: geopy.distance.geodesic((labeled_row['latitude'], labeled_row['longitude']),
                                                                     (row['latitude'], row['longitude']),
                                                                     ellipsoid='WGS-84').km, axis=1)
-        gdf_distances = pd.concat([gdf_distances, gdf])
-    gdf_distances.sort_values(by='dist', ascending=False, inplace=True)
+        # add those distances to this already ordered point to the scratchpad
+        df_distances = pd.concat([df_distances, df])
+        df_scratchpad = df_distances.copy()
+        if order =='furthest':
+            df_scratchpad.sort_values(by=['city', 'state','dist'], ascending=True, inplace=True)
+            df_scratchpad = df_scratchpad.drop_duplicates(subset=["city", "state"], keep="first")
+        else:
+            raise ValueError(f"{order} not supported, please specify one of nearest (default), furthest, or central")
 
-    # find width of the rings by dividing the furthest point by the number of rings
-    ringwidth = gdf.iloc[0].dist / rings
-    print(ringwidth)
-    gdf_distances.dist = round(
-        gdf_distances.dist / ringwidth)  # convert that distance to a numbered bin, larger are further away
-    gdf_distances.sort_values(by=['dist', 'population'], ascending=False, inplace=True)
-    furthest_most_populous_row = gdf_distances.iloc[0]
-    print(f"adding {furthest_most_populous_row.city}")
-    gdf_ordered = pd.concat([gdf_ordered, pd.DataFrame(
-        [furthest_most_populous_row])])  # append most populous city in outer most ring to ordered list
-    gdf = gdf[~gdf.id.isin(gdf_ordered.id.unique())]
+        df_scratchpad['ringnumber']=None
 
-    print(gdf_ordered)
-    return (gdf_ordered)
+
+        # find width of the rings by dividing the furthest point by the number of rings
+        furthest= df.dist.max()
+        ringwidth = furthest / rings
+
+        # convert that distance to a numbered ring (bin), larger ring numbers are further away
+        # round function forces a single ring
+        df_scratchpad.ringnumber = round( df_scratchpad.dist / ringwidth)
+
+        df_scratchpad.sort_values(by=['ringnumber',valuecolumn], ascending=False, inplace=True)
+
+        if order == 'furthest':
+            furthest_most_populous_row = df_scratchpad.iloc[0]
+        elif order == 'nearest':
+            raise ValueError(f"{order} ordering not yet implemented")
+        elif order == 'central':
+            raise ValueError(f"{order} ordering not yet implemented")
+        else:
+            raise ValueError(f"{order} not supported, please specify one of nearest (default), furthest, or central")
+
+        # append most populous city in outer most ring to ordered list
+        df_ordered = pd.concat([df_ordered, pd.DataFrame( [furthest_most_populous_row])])
+        df = df[~df.id.isin(df_ordered.id.unique())]
+
+        # print(f"adding {furthest_most_populous_row.city} {df_ordered.shape[0]}/{df.shape[0]}")
+        # remove that row from the todolist
+
+
+    return (df_ordered.drop(columns=['ringnumber', 'dist']))
     # while gdf.shape[0] > 0:
     #     gdf
 
