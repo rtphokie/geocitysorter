@@ -31,11 +31,11 @@ class SomeTest(unittest.TestCase):
         gdf.to_file('../data/incorporated_cities_uscensus.json', driver="GeoJSON")
         gdf_lower48 = gdf[~gdf.state.isin(['Alaska', 'Hawaii', 'Puerto Rico'])]
         gdf_lower48.to_file('../data/incorporated_cities_uscensus_lower48.json', driver="GeoJSON")
-        print(gdf_lower48)
         gdf_lower48[gdf_lower48.population >= 10000].to_file('../data/incorporated_cities_uscensus_min.json',
                                                              driver="GeoJSON")
 
-    def test_census2(self):
+    @unittest.skip('expensive')
+    def test_plot(self):
         gdf = gpd.read_file('../data/incorporated_cities_uscensus_min.json')
         gdf.sort_values(by=['population'], inplace=True, ascending=False)
         self.assertEqual(3198, gdf.shape[0])
@@ -48,25 +48,56 @@ class SomeTest(unittest.TestCase):
 
         print(gdf)
 
-    def test_main(self):
+
+    def test_VANC(self):
         # df = census_incorporated_cities()
         import geopandas as gpd
         gdf = gpd.read_file('../data/incorporated_cities_uscensus_min.json')
 
-        state = "North Carolina"
-        state = "Virginia"
-        gdf = gdf[gdf.state == state]
-        gdf_orderd=main(gdf)
-        print(gdf)
-        print(gdf_orderd)
+        states = ["North Carolina"]
+        gdf = gdf[gdf.state.isin(states)]
+        gdf_orderd=main(gdf, verbose=True, first='capital', rings=5)
+        gdf_orderd.to_csv('aaaa_5.csv')
         self.assertEqual(gdf.shape,gdf_orderd.shape)
-        crs = "EPSG:4326"
-        import geopandas as gpd
-        gdf_orderd = gpd.GeoDataFrame(gdf_orderd, geometry=gpd.points_from_xy(gdf_orderd.longitude, gdf_orderd.latitude), crs=crs)
         print(gdf_orderd)
-        import os
-        os.makedirs('../data', exist_ok=True)
-        gdf.to_file('../data/cities_uscb.json', driver="GeoJSON")
+        crs = "EPSG:4326"
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(12, 9))
+        fig.tight_layout()
+        ax.axis('off')
+        gdf_orderd.plot(ax=ax, markersize=1, color='k')
+        plt.savefig('foo.png', dpi=300)
+
+
+
+
+    def test_VANC(self):
+        # df = census_incorporated_cities()
+        import geopandas as gpd
+        gdf = gpd.read_file('../data/incorporated_cities_uscensus_min.json')
+
+        states = ["North Carolina","Virginia"]
+        gdf = gdf[gdf.state.isin(states)]
+        gdf_orderd=main(gdf, verbose=True, first='capital', rings=5)
+        gdf_orderd.to_csv('aaaa_5.csv')
+        self.assertEqual(gdf.shape,gdf_orderd.shape)
+        print(gdf_orderd)
+        return
+        crs = "EPSG:4326"
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(12, 9))
+        fig.tight_layout()
+        ax.axis('off')
+        gdf_orderd.plot(ax=ax, markersize=1, color='k')
+        plt.savefig('foo.png', dpi=300)
+
+
+        import geopandas as gpd
+        # gdf_orderd = gpd.GeoDataFrame(gdf_orderd, geometry=gpd.points_from_xy(gdf_orderd.longitude, gdf_orderd.latitude), crs=crs)
+        # print(gdf_orderd)
+        # import os
+        # os.makedirs('../data', exist_ok=True)
+        # gdf.to_file('../data/cities_uscb.json', driver="GeoJSON")
 
 
 #
