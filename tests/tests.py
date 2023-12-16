@@ -49,7 +49,7 @@ class SomeTest(unittest.TestCase):
         print(gdf)
 
 
-    def test_VANC(self):
+    def test_images_for_readme(self):
         # df = census_incorporated_cities()
         import geopandas as gpd
         gdf = gpd.read_file('../data/incorporated_cities_uscensus_min.json')
@@ -61,11 +61,22 @@ class SomeTest(unittest.TestCase):
         self.assertEqual(gdf.shape,gdf_orderd.shape)
         print(gdf_orderd)
         crs = "EPSG:4326"
+        us = gpd.read_file('../data/cb_2018_us_state_500k/cb_2018_us_state_500k.shp')
+        us.to_crs(crs, inplace=True)
+        print(type(gdf))
+        print(type(gdf_orderd))
+        gdf_orderd= gpd.GeoDataFrame(gdf_orderd, crs=gdf.crs, geometry=gdf_orderd.geometry)
+        print(type(gdf_orderd))
+        gdf_orderd.to_crs(crs, inplace=True)
+
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(12, 9))
+        us[us.NAME.isin(states)].plot(ax=ax, color="lightblue")
         fig.tight_layout()
         ax.axis('off')
         gdf_orderd.plot(ax=ax, markersize=1, color='k')
+        # gdf_orderd.population.plot(ax=ax, markersize=2, color='red', marker='*', label='Delhi', zorder=3)
+
         plt.savefig('foo.png', dpi=300)
 
 

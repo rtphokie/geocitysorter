@@ -1,4 +1,5 @@
 import geopy.distance
+import geopandas as gpd
 import pandas as pd
 
 from .census import census_incorporated_cities
@@ -138,7 +139,14 @@ def main(df_orig, rings=5, order='furthest', valuecolumn='population',
         raise Exception(f"something went wrong, {df_orig.shape[0]} rows were passed but resulting dataframe as {df_ordered.shape[0]} rows")
     if verbose:
         print(f"{calcs:,} calculations for {df_orig.shape[0]}")
-    return (df_ordered[df_ordered.id!='starting point'].drop(columns=['ringnumber', 'dist', 'id', 'capital']))
+
+    df_result =  df_ordered[df_ordered.id!='starting point'].drop(columns=['ringnumber', 'dist', 'id', 'capital'])
+    if type(df_orig) == gpd.geodataframe.GeoDataFrame and type(df_result) != gpd.geodataframe.GeoDataFrame:
+        # all this mucking about with the dataframes can cause cause GeoPandas dataframe to devolve into a
+        # plain-ol Pandas dataframe, we should return the same type that was passed, restoring the same
+        # CRS and geometry column passed
+        df_result= gpd.GeoDataFrame(df_result, crs=df_orig.crs, geometry=df_result.geometry)
+    return df_result
 
 
 def calcdist(coord1, coord2):
