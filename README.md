@@ -24,10 +24,9 @@ city (population by default)
 Options allow you to force the most populous city, capital, or an arbitrary list of cities
 to be at the top of the resulting dataframe.
 
+It orders whatever points you give it, including across multiple states
 
-Orders whatever points you give it, including across multiple states
 <img src="images/Texas_Oklahoma_geopop.png" alt="drawing" width="300"/>
-first="both", rings="2"
 
 
 ## How it works

@@ -5,7 +5,7 @@ import geopy
 import geopandas as gpd
 import pandas as pd
 
-from geocitysorter import census_incorporated_cities, main
+from geocitysorter import census_incorporated_cities, main, uscb_cities, capital_cities, uscb_shapefiles
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', None)
@@ -57,7 +57,11 @@ class SomeTest(unittest.TestCase):
 
     def test_images_for_readme(self):
         # df = census_incorporated_cities()
-        gdf = gpd.read_file('../data/incorporated_cities_uscensus.json')
+        # from importlib import resources as impresources
+        # from . import templates
+
+        # gdf = gpd.read_file('../data/incorporated_cities_uscensus.json')
+        gdf = uscb_cities()
 
         # states = ["Colorado"]
         # states = ["South Dakota"]
@@ -65,8 +69,8 @@ class SomeTest(unittest.TestCase):
         # states = ["Michigan"]
         # states = ["Kentucky"]
         states = ["Kentucky"]
-        states = ["California"]
-        states = ["Texas", 'Oklahoma']
+        # states = ["California"]
+        # states = ["Texas", 'Oklahoma']
         # states = ["California", 'Nevada']
         # states = ["North Carolina", 'South Carolina']
         # states = ["Texas"]
@@ -97,7 +101,8 @@ class SomeTest(unittest.TestCase):
                 pickle.dump(gdf_orderd, fp)
                 print(f"dumped cache of {gdf_orderd.shape[0]} for {picklefilename}")
 
-        us = gpd.read_file('../data/cb_2018_us_state_500k/cb_2018_us_state_500k.shp')
+
+        us = uscb_shapefiles()
         us.to_crs(crs, inplace=True)
         if gdf_orderd.crs != 'EPSG:4326':
             print("warning, assuming World Geodetic System 1984 (WGS-84)")

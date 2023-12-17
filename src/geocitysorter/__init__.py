@@ -2,11 +2,31 @@ import geopandas as gpd
 from tqdm import tqdm
 import geopy.distance
 import pandas as pd
+from importlib import resources as impresources
 
 from .census import census_incorporated_cities
 from .populations import get_census_data
+import pkg_resources
 
+resource_package = __name__
 pd.set_option('display.max_rows', None)
+
+
+def uscb_cities():
+    resource_path = '/'.join(('geodata', 'incorporated_cities_uscensus.json'))  # Do not use os.path.join()
+    inp_file = pkg_resources.resource_stream(resource_package, resource_path)
+    return gpd.read_file(inp_file)
+
+def capital_cities():
+    resource_path = '/'.join(('geodata', 'capitals.csv'))  # Do not use os.path.join()
+    inp_file = pkg_resources.resource_stream(resource_package, resource_path)
+    return  pd.read_csv(inp_file, on_bad_lines='skip', encoding='utf8')
+
+def uscb_shapefiles():
+    # us = gpd.read_file('../data/cb_2018_us_state_500k/cb_2018_us_state_500k.shp')
+    resource_path = '/'.join(('geodata', 'cb_2018_us_state_500k', 'cb_2018_us_state_500k.shp'))  # Do not use os.path.join()
+    inp_file = pkg_resources.resource_stream(resource_package, resource_path)
+    return gpd.read_file(inp_file.name)
 
 
 # https://packaging.python.org/en/latest/tutorials/packaging-projects/
@@ -77,7 +97,7 @@ def main(df_orig, rings=5, order='furthest', valuecolumn='population', starting_
     if first in ['largest', 'both']:
         df_ordered = pd.concat([df_ordered, pd.DataFrame([df.iloc[0]])])
     if first in ['capital', 'both']:
-        df_capitals = pd.read_csv("../data/capitals.csv", on_bad_lines='skip', encoding='utf8')
+        df_capitals = capital_cities()
         df_capitals['capital'] = True
         df = df.merge(df_capitals, left_on=['city', 'state'], right_on=['city', 'state', ], how='left')
         df_ordered = pd.concat([df_ordered, df[df.capital == True]])
