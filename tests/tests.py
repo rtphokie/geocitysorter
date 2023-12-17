@@ -1,4 +1,6 @@
 import unittest
+import pickle
+import geopy
 
 import geopandas as gpd
 import pandas as pd
@@ -55,10 +57,8 @@ class SomeTest(unittest.TestCase):
 
     def test_images_for_readme(self):
         # df = census_incorporated_cities()
-        import geopandas as gpd
         gdf = gpd.read_file('../data/incorporated_cities_uscensus.json')
 
-        states = ["North Carolina", 'South Carolina']
         # states = ["Colorado"]
         # states = ["South Dakota"]
         # states = ["Alabama"]
@@ -67,22 +67,45 @@ class SomeTest(unittest.TestCase):
         states = ["Kentucky"]
         states = ["California"]
         states = ["Texas", 'Oklahoma']
+        # states = ["California", 'Nevada']
+        # states = ["North Carolina", 'South Carolina']
+        # states = ["Texas"]
+        # states = ["Minnesota"]
+        # states = ["Wyoming"]
         # states = ["North Carolina"]
-        gdf = gdf[gdf.state.isin(states)]
-        gdf = gdf[gdf.population > 1000]
-        gdf.sort_values(by=['city', 'state', 'population'], ascending=False, inplace=True)
-        gdf.drop_duplicates(subset=["city", "state"], keep="first", inplace=True)  # when capital is the larget city
-        gdf_orderd=main(gdf, verbose=True, first='both', rings=2)
 
-        gdf['dist']=None  # the function adds this
-        gdf['ratio']=None  # the function adds this
-        # self.assertEqual(gdf.shape,gdf_orderd.shape)
         crs = "EPSG:4326"
+        picklefilename='_'.join(states)
+        try:
+            with open(f'cache/{picklefilename}.pkl', 'rb') as fp:
+                gdf_orderd = pickle.load(fp)
+        except:
+            gdf = gdf[gdf.state.isin(states)]
+
+            gdf.sort_values(by=['city', 'state', 'population'], ascending=False, inplace=True)
+            gdf.drop_duplicates(subset=["city", "state"], keep="first", inplace=True)  # when capital is the larget city
+            gdf_orderd=main(gdf, verbose=True, first='both', rings=2)
+
+            gdf['dist']=None  # the function adds this
+            gdf['ratio']=None  # the function adds this
+            # self.assertEqual(gdf.shape,gdf_orderd.shape)
+            gdf_orderd= gpd.GeoDataFrame(gdf_orderd, crs=gdf.crs, geometry=gdf_orderd.geometry)
+            gdf_orderd.to_crs(crs, inplace=True)
+            gdf_orderd.reset_index(inplace=True)
+
+            with open(f'cache/{picklefilename}.pkl', 'wb') as fp:
+                pickle.dump(gdf_orderd, fp)
+                print(f"dumped cache of {gdf_orderd.shape[0]} for {picklefilename}")
+
         us = gpd.read_file('../data/cb_2018_us_state_500k/cb_2018_us_state_500k.shp')
         us.to_crs(crs, inplace=True)
-        gdf_orderd= gpd.GeoDataFrame(gdf_orderd, crs=gdf.crs, geometry=gdf_orderd.geometry)
-        gdf_orderd.to_crs(crs, inplace=True)
-        gdf_orderd.reset_index(inplace=True)
+        if gdf_orderd.crs != 'EPSG:4326':
+            print("warning, assuming World Geodetic System 1984 (WGS-84)")
+
+        # dist between western and eastern most cities.
+        city_bounds = gdf_orderd.total_bounds
+        width_km = geopy.distance.geodesic( (city_bounds[1], city_bounds[0]), (city_bounds[3], city_bounds[2]), ellipsoid='WGS-84').km
+        print(gdf_orderd)
 
         numcities=min(20,gdf_orderd.shape[0])
         import matplotlib.pyplot as plt
@@ -94,14 +117,14 @@ class SomeTest(unittest.TestCase):
 
         fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(12, 9))
         ax.axis('off')
-        us[us.NAME.isin(states)].plot(ax=ax, color="lightblue")
+        us[us.NAME.isin(states)].plot(ax=ax, color="lightblue", edgecolor='grey')
 
-        df_o=gdf_orderd[gdf_orderd.dist > 100]
+        df_o=gdf_orderd[(gdf_orderd.dist > width_km/10)|(gdf_orderd.dist.isna())]
         numcities=df_o.shape[0]
         print(df_o)
         # df_o.plot(ax=ax, markersize=df_o.marker_size, color='k')
         df_o.plot(ax=ax, markersize= 20, color='k')
-        plt.title(f'top {numcities} by geopopulation')
+        plt.title(f'by geopopulation')
         for x, y, label in zip(df_o.geometry.x, df_o.geometry.y, df_o.city):
             ax.annotate(label, xy=(x, y), xytext=(3, 3), textcoords="offset points")
         plt.savefig('foo_2.png', dpi=300)
@@ -111,12 +134,12 @@ class SomeTest(unittest.TestCase):
 
         fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(12, 9))
         ax.axis('off')
-        us[us.NAME.isin(states)].plot(ax=ax, color="lightblue")
+        us[us.NAME.isin(states)].plot(ax=ax, color="lightblue", edgecolor='grey')
         df_u=gdf_orderd.sort_values(by='population', ascending=False).head(numcities)
         df_u.plot(ax=ax, markersize=20, color='k')
         for x, y, label in zip(df_u.geometry.x, df_u.geometry.y, df_u.city):
             ax.annotate(label, xy=(x, y), xytext=(3, 3), textcoords="offset points")
-        plt.title(f'top {numcities} by population')
+        plt.title(f'by population')
         plt.savefig('foo_3.png', dpi=300)
         plt.savefig(f'../images/{"_".join(states)}_pop.png', dpi=300)
 

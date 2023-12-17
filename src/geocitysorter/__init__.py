@@ -1,5 +1,6 @@
-import geopy.distance
 import geopandas as gpd
+from tqdm import tqdm
+import geopy.distance
 import pandas as pd
 
 from .census import census_incorporated_cities
@@ -11,10 +12,8 @@ pd.set_option('display.max_rows', None)
 # https://packaging.python.org/en/latest/tutorials/packaging-projects/
 #
 
-def main(df_orig, rings=5, order='furthest', valuecolumn='population',
-         starting_lat=None, starting_lng=None, verbose=False, first='both',
-         citylist=[]
-         ):
+def main(df_orig, rings=5, order='furthest', valuecolumn='population', starting_lat=None, starting_lng=None,
+         verbose=False, first='both', citylist=[]):
     '''
     offers a tool to help identify the right points to label on a map, not just by population or distance, but a
     combination of the two.
@@ -49,7 +48,6 @@ def main(df_orig, rings=5, order='furthest', valuecolumn='population',
                               points on a map by population (the point of this function)
                     nearest: the most populous city in the nearest ring, useful for finding the most relevant
                              point "near" a given point such as the largest city nearby
-                    central: the most populous city in the middle ring, seemed a useful option to include
     :param first:   capital: order state capitals first
                     largest: order the largest city first (default)
     :poram citylist: list of cities to include at top of resulting list
@@ -61,12 +59,13 @@ def main(df_orig, rings=5, order='furthest', valuecolumn='population',
     if 'city' not in df_orig.columns or 'state' not in df_orig.columns:
         raise ValueError(f"expected city and state columns in dataframe passed")
     if first not in ['capital', 'largest', 'both']:
-        raise ValueError(f"{first} not supported for as the first city to include, please specify capital (default) or largest")
+        raise ValueError(
+            f"{first} not supported for as the first city to include, please specify capital (default) or largest")
 
     df = df_orig.copy()  # we'll be chewing this dataframe down to nothing as we iterate, let's work on a copy
     df.sort_values(by=[valuecolumn], ascending=False, inplace=True)
-    df.drop_duplicates(subset=["city", "state"], keep="first", inplace=True) # when capital is the larget city
-    orig_rows=df.shape[0]
+    df.drop_duplicates(subset=["city", "state"], keep="first", inplace=True)  # when capital is the larget city
+    orig_rows = df.shape[0]
     if df.shape[0] != df_orig.shape[0]:
         raise Exception(f"dataframe has {df_orig.shape[0] - df.shape[0]} duplicate rows.")
     # df.set_index(['city', 'state'], inplace=True)
@@ -78,25 +77,27 @@ def main(df_orig, rings=5, order='furthest', valuecolumn='population',
     if first in ['largest', 'both']:
         df_ordered = pd.concat([df_ordered, pd.DataFrame([df.iloc[0]])])
     if first in ['capital', 'both']:
-        df_capitals=pd.read_csv("../data/capitals.csv", on_bad_lines='skip', encoding = 'utf8')
-        df_capitals['capital']=True
-        df =  df.merge(df_capitals, left_on=['city','state'], right_on=['city','state', ], how='left')
+        df_capitals = pd.read_csv("../data/capitals.csv", on_bad_lines='skip', encoding='utf8')
+        df_capitals['capital'] = True
+        df = df.merge(df_capitals, left_on=['city', 'state'], right_on=['city', 'state', ], how='left')
         df_ordered = pd.concat([df_ordered, df[df.capital == True]])
-    df.sort_values(by=[ valuecolumn], ascending=False, inplace=True)
+    df.sort_values(by=[valuecolumn], ascending=False, inplace=True)
 
     if starting_lat is None or starting_lng or None:
         starting_lat = starting_lng = 0.0
 
     # seed the ordered list (with all columns) with the passed coordinates, defaulted to one arbitrarily far away
     if df_ordered.shape[0] == 0:
-        df_ordered = pd.concat([df_ordered, pd.DataFrame([{'latitude': starting_lat, 'longitude': starting_lng, 'id': 'starting point'}])])
+        df_ordered = pd.concat(
+            [df_ordered, pd.DataFrame([{'latitude': starting_lat, 'longitude': starting_lng, 'id': 'starting point'}])])
     else:
         df = df[~df.id.isin(df_ordered.id.unique())]
 
-
-
     df_scratchpad = pd.DataFrame()
-    calcs=0
+    calcs = 0
+    if verbose:
+        pbar = tqdm(total=df.shape[0])
+
     while df.shape[0] > 0:
 
         # remove cities that have alrady been ordered from the running list for consideration
@@ -107,7 +108,7 @@ def main(df_orig, rings=5, order='furthest', valuecolumn='population',
                                                                    row_most_recently_ordered['longitude']),
                                                                   (row['latitude'], row['longitude']),
                                                                   ellipsoid='WGS-84').km, axis=1)
-        calcs+=df.shape[0]
+        calcs += df.shape[0]
         # add those to the running list of distances to remaining cities
         df_scratchpad = pd.concat([df_scratchpad, df])
 
@@ -131,8 +132,6 @@ def main(df_orig, rings=5, order='furthest', valuecolumn='population',
             furthest_most_populous_row = df_scratchpad.iloc[0]
         elif order == 'nearest':
             raise ValueError(f"{order} ordering not yet implemented")
-        elif order == 'central':
-            raise ValueError(f"{order} ordering not yet implemented")
         else:
             raise ValueError(f"{order} not supported, please specify one of nearest (default), furthest, or central")
 
@@ -143,20 +142,24 @@ def main(df_orig, rings=5, order='furthest', valuecolumn='population',
         df = df[~df.id.isin(df_ordered.id.unique())]
         if row_most_recently_ordered.id == 'starting point':
             df_scratchpad = pd.DataFrame()  # dump those distances, they were just for getting started
-            df_ordered = df_ordered[df_ordered.id != 'starting point'] # this is no longer needed either
+            df_ordered = df_ordered[df_ordered.id != 'starting point']  # this is no longer needed either
         else:
             df_scratchpad = df_scratchpad[~df_scratchpad.id.isin(df_ordered.id.unique())]
+        if verbose:
+            pbar.update(1)
+            pbar.set_description(furthest_most_populous_row.city)
 
     # return ordered list, removing the columns and row we added along the way
-    df_ordered.drop_duplicates(subset=["city", "state"], keep="first", inplace=True) # when capital is the larget city
+    df_ordered.drop_duplicates(subset=["city", "state"], keep="first", inplace=True)  # when capital is the larget city
     if orig_rows != df_ordered.shape[0]:
         print(df_orig[~df_orig.isin(df_ordered.city.unique())])
         print(df_orig)
-        raise Exception(f"something went wrong, {df_orig.shape[0]} rows were passed but resulting dataframe as {df_ordered.shape[0]} rows")
+        raise Exception(
+            f"something went wrong, {df_orig.shape[0]} rows were passed but resulting dataframe as {df_ordered.shape[0]} rows")
     if verbose:
         print(f"{calcs:,} calculations for {df_orig.shape[0]}")
 
-    df_result =  df_ordered[df_ordered.id!='starting point']
+    df_result = df_ordered[df_ordered.id != 'starting point']
     df_result['ratio'] = df_result[valuecolumn] / df_result[valuecolumn].max()
     df_result.reset_index(inplace=True)
     df_result.drop(columns=['ringnumber', 'id', 'capital', 'index'], inplace=True)
@@ -164,7 +167,7 @@ def main(df_orig, rings=5, order='furthest', valuecolumn='population',
         # all this mucking about with the dataframes can cause cause GeoPandas dataframe to devolve into a
         # plain-ol Pandas dataframe, we should return the same type that was passed, restoring the same
         # CRS and geometry column passed
-        df_result= gpd.GeoDataFrame(df_result, crs=df_orig.crs, geometry=df_result.geometry)
+        df_result = gpd.GeoDataFrame(df_result, crs=df_orig.crs, geometry=df_result.geometry)
 
     return df_result
 

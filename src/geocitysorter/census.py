@@ -24,8 +24,7 @@ def _most_recent_population_column(colstoconsider):
 
 
 def census_incorporated_cities(crs="EPSG:4326",
-                               columnstokeep=['city', 'state', 'population', 'area_land', 'area_water', 'latitude',
-                                              'longitude']):
+                               columnstokeep=['city', 'state', 'population', 'latitude', 'longitude']):
     '''
 
     fetches population and coordinate data for nearly 20k incorporated cities from the United States Census Bureau and
@@ -50,13 +49,33 @@ def census_incorporated_cities(crs="EPSG:4326",
 
         df = pd.merge(df_pop, df_coords, on=['NAME', 'STNAME'], how='left')
         df.rename(columns={"BASENAME": "city", "STNAME": "state",
-                           "AREALAND": 'area_land', "AREAWATER": 'area_water',  # these might be useful
                            "CENTLAT": "latitude", "CENTLON": "longitude",
                            }, errors="raise", inplace=True)
         df = df[columnstokeep]
+
         df.drop_duplicates(
             inplace=True)  # USCB population data includes some breakouts by county and other methods that result in duplicate data when we drop the other fields we dont need
         df.dropna(subset=['longitude', 'latitude'], inplace=True)
+        df = df.dropna()
+        df.city=df.city.str.replace(' County unified government (balance)', '')
+        df.city=df.city.str.replace(' County metro government (balance)', '')
+        df.city=df.city.str.replace(' metropolitan government (balance)', '')
+        df.city=df.city.str.replace(' County consolidated government (balance)', '')
+        df.city=df.city.str.replace(' (balance)', '')
+        df.city=df.city.str.replace('Athens-Clarke', 'Athens')
+        df.city=df.city.str.replace('Augusta-Richmond', 'Augusta')
+        df.city=df.city.str.replace('Cusseta-Chattahoochee County', 'Cusseta')
+        df.city=df.city.str.replace('Helena-West Helena', 'Helena')
+        df.city=df.city.str.replace('Nashville-Davidson', 'Nashville')
+        df.city=df.city.str.replace('Louisville/Jefferson', 'Louisville')
+        df.city=df.city.str.replace('Hartsville/Trousdale County', 'Hartsiville')
+        foo=  df[df['city'].str.contains('metro')]
+        foo=  df[df['city'].str.contains('(balance)')]
+        foo=  df[df['city'].str.contains('Athens')]
+        foo=  df[df['city'].str.contains('Louisville')]
+        foo=  df[df['city'].str.contains('Nashville')]
+        foo=  df[df['city'].str.contains('-')]
+        foo=  df[df['city'].str.contains('/')]
         gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.longitude, df.latitude), crs=crs)
         with open(picklefile, 'wb') as fp:
             pickle.dump(gdf, fp)
@@ -149,131 +168,3 @@ def _download_file(url):
             zip_ref.extractall(local_extraction_dir)
             result = local_extraction_dir
     return result
-
-#
-# def _get_coords_from_wikipedia(s):
-#     url = f"https://en.wikipedia.org/wiki/{s}"
-#     r = session.get(url)
-#     import re
-#     stuff = re.search('<span class="geo">([\d\.\-]+); ([\d\-\.]+)</span>', r.text, re.IGNORECASE)
-#     result = None
-#     if stuff:
-#         result = {'lat': float(stuff.group(1)),
-#                   'lng': float(stuff.group(2)),
-#                   'from_cache': r.from_cache,
-#                   'display_name': f"{s}, United States",
-#                   'importance': None,
-#                   'osm_id': None,
-#                   }
-#     else:
-#         print(url)
-#     return result
-#
-#
-# # https://nominatim.org/release-docs/develop/api/Overview/
-# def _geocode(s, use_cache=True, service='https://geocode.maps.co/search?q='):
-#     # https://geocode.maps.co
-#     s = s.replace(' Town, Massachusetts', ', Massachusetts')  #
-#     result = None
-#     import time
-#     os.makedirs('cache', exist_ok=True)
-#     with shelve.open('cache/geocode.cache') as db:
-#         if s not in db.keys() or not use_cache or db[s] is None:
-#             url = f"{service}{s.replace(' ', '+')},+United States"
-#             # url = f"https://nominatim.openstreetmap.org/search?format=json&q={s.replace(' ', '+')},+United States"
-#             r = session.get(url)
-#             if not r.from_cache:
-#                 time.sleep(1)  # free tier of maps.co has a very reasonable 1 second throttle limit
-#             if r.ok:
-#                 data = r.json()
-#                 # pprint(data)
-#                 previmportant = 0
-#                 theone = {'importance': 0}
-#                 for x in r.json():
-#                     if x['importance'] > theone['importance'] and x['type'] in ['administrative', 'census', 'city',
-#                                                                                 'town', 'hamlet', 'townhall',
-#                                                                                 'village']:
-#                         if 'lat' in x.keys():
-#                             theone = x
-#             else:
-#                 print(s)
-#                 print(url)
-#                 print(r.text)
-#                 return None
-#             if 'lat' in theone.keys():
-#                 result = {'lat': float(theone['lat']),
-#                           'lng': float(theone['lon']),
-#                           'from_cache': r.from_cache,
-#                           'display_name': theone['display_name'],
-#                           'importance': theone['importance'],
-#                           'osm_id': theone['osm_id'],
-#                           }
-#             elif 'geocode.maps.co' in service:
-#                 db[s] = None
-#                 db.close()
-#                 return _geocode(s, service='https://nominatim.openstreetmap.org/search?format=json&q=')
-#
-#             # missing open stream map data
-#             if result is None:
-#                 if s == 'Burlington, New Jersey':
-#                     result = {'lat': 40.078307,
-#                               'lng': -74.853328,
-#                               'from_cache': True,
-#                               'display_name': 'Burlington, New Jersey, United States',
-#                               'importance': 0.5,
-#                               'osm_id': None,
-#                               }
-#                 elif s == 'Credit River, Minnesota':
-#                     result = {'lat': 44.673889, 'lng': -93.358889,
-#                               'display_name': 'Credit River, Minnesota, United States',
-#                               'from_cache': True, 'importance': 0.5, 'osm_id': None,
-#                               }
-#                 elif s == 'Lancaster, New York':
-#                     result = {'lat': 42.906111, 'lng': -78.633889,
-#                               'display_name': 'Lancaster, New York, United States',
-#                               'from_cache': True, 'importance': 0.5, 'osm_id': None,
-#                               }
-#                 elif s == 'Corning, New York':
-#                     result = {'lat': 42.148056, 'lng': -77.056944,
-#                               'display_name': 'Corning, New York, United States',
-#                               'from_cache': True, 'importance': 0.5, 'osm_id': None,
-#                               }
-#                 elif s == 'James Island, South Carolina':
-#                     result = {'lat': 32.737778, 'lng': -79.942778,
-#                               'from_cache': True, 'importance': 0.5, 'osm_id': None,
-#                               }
-#                 elif s == 'Cahokia Heights, Illinois':
-#                     result = {'lat': 40.6170,
-#                               'lng': -89.6046,
-#                               'from_cache': True,
-#                               'display_name': 'Cahokia Heights, Illinois, United States',
-#                               'importance': 0.5,
-#                               'osm_id': None,
-#                               }
-#                 elif s == 'Inverness, Florida':
-#                     result = {'lat': -82.34027,
-#                               'lng': 28.83917,
-#                               'from_cache': True,
-#                               'display_name': 'Inverness, Florida, United States',
-#                               'importance': 0.5,
-#                               'osm_id': None,
-#                               }
-#                 else:
-#                     print(url)
-#                     print(f"{s} types")
-#                     for x in data:
-#                         print(x['type'])
-#                     if 'geocode.maps.co' in service:
-#                         db[s] = None
-#                         db.close()
-#                         return _geocode(s, service='https://nominatim.openstreetmap.org/search?format=json&q=')
-#             try:
-#                 db[s] = result
-#             except:
-#                 print(f'need to revisit {s}', '-' * 20)
-#                 pass
-#         else:
-#             result = db[s]
-#             result['from_cache'] = True
-#
-#     return result
