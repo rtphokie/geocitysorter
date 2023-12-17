@@ -27,6 +27,7 @@ class SomeTest(unittest.TestCase):
 
     def test_census(self):
         gdf = census_incorporated_cities()
+
         self.assertEqual(19820, gdf.shape[0])
         gdf.to_file('../data/incorporated_cities_uscensus.json', driver="GeoJSON")
         gdf_lower48 = gdf[~gdf.state.isin(['Alaska', 'Hawaii', 'Puerto Rico'])]
@@ -46,40 +47,78 @@ class SomeTest(unittest.TestCase):
         plt.show()
         #     gdf_cities_to_plot[(gdf_cities_to_plot.population <= 15000) & (gdf_cities_to_plot.population > 10000)].plot(ax=ax, color='pink')
 
-        print(gdf)
+
+    def test_min_dist(self):
+        gdf = gpd.read_file('../data/incorporated_cities_uscensus_min.json')
+        states = ["North Carolina"]
 
 
     def test_images_for_readme(self):
         # df = census_incorporated_cities()
         import geopandas as gpd
-        gdf = gpd.read_file('../data/incorporated_cities_uscensus_min.json')
+        gdf = gpd.read_file('../data/incorporated_cities_uscensus.json')
 
-        states = ["North Carolina"]
+        states = ["North Carolina", 'South Carolina']
+        # states = ["Colorado"]
+        # states = ["South Dakota"]
+        # states = ["Alabama"]
+        # states = ["Michigan"]
+        # states = ["Kentucky"]
+        states = ["Kentucky"]
+        states = ["California"]
+        states = ["Texas", 'Oklahoma']
+        # states = ["North Carolina"]
         gdf = gdf[gdf.state.isin(states)]
-        gdf_orderd=main(gdf, verbose=True, first='capital', rings=5)
-        gdf_orderd.to_csv('aaaa_5.csv')
-        self.assertEqual(gdf.shape,gdf_orderd.shape)
-        print(gdf_orderd)
+        gdf = gdf[gdf.population > 1000]
+        gdf.sort_values(by=['city', 'state', 'population'], ascending=False, inplace=True)
+        gdf.drop_duplicates(subset=["city", "state"], keep="first", inplace=True)  # when capital is the larget city
+        gdf_orderd=main(gdf, verbose=True, first='both', rings=2)
+
+        gdf['dist']=None  # the function adds this
+        gdf['ratio']=None  # the function adds this
+        # self.assertEqual(gdf.shape,gdf_orderd.shape)
         crs = "EPSG:4326"
         us = gpd.read_file('../data/cb_2018_us_state_500k/cb_2018_us_state_500k.shp')
         us.to_crs(crs, inplace=True)
-        print(type(gdf))
-        print(type(gdf_orderd))
         gdf_orderd= gpd.GeoDataFrame(gdf_orderd, crs=gdf.crs, geometry=gdf_orderd.geometry)
-        print(type(gdf_orderd))
         gdf_orderd.to_crs(crs, inplace=True)
+        gdf_orderd.reset_index(inplace=True)
 
+        numcities=min(20,gdf_orderd.shape[0])
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(12, 9))
-        us[us.NAME.isin(states)].plot(ax=ax, color="lightblue")
+        us[us.NAME.isin(states)].plot(ax=ax, color="lightblue", edgecolor='k')
         fig.tight_layout()
         ax.axis('off')
-        gdf_orderd.plot(ax=ax, markersize=1, color='k')
-        # gdf_orderd.population.plot(ax=ax, markersize=2, color='red', marker='*', label='Delhi', zorder=3)
+        gdf_orderd['marker_size']= 50*(gdf_orderd.population / gdf_orderd.population.max())+10
 
-        plt.savefig('foo.png', dpi=300)
+        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(12, 9))
+        ax.axis('off')
+        us[us.NAME.isin(states)].plot(ax=ax, color="lightblue")
+
+        df_o=gdf_orderd[gdf_orderd.dist > 100]
+        numcities=df_o.shape[0]
+        print(df_o)
+        # df_o.plot(ax=ax, markersize=df_o.marker_size, color='k')
+        df_o.plot(ax=ax, markersize= 20, color='k')
+        plt.title(f'top {numcities} by geopopulation')
+        for x, y, label in zip(df_o.geometry.x, df_o.geometry.y, df_o.city):
+            ax.annotate(label, xy=(x, y), xytext=(3, 3), textcoords="offset points")
+        plt.savefig('foo_2.png', dpi=300)
+        plt.savefig(f'../images/{"_".join(states)}_geopop.png', dpi=300)
 
 
+
+        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(12, 9))
+        ax.axis('off')
+        us[us.NAME.isin(states)].plot(ax=ax, color="lightblue")
+        df_u=gdf_orderd.sort_values(by='population', ascending=False).head(numcities)
+        df_u.plot(ax=ax, markersize=20, color='k')
+        for x, y, label in zip(df_u.geometry.x, df_u.geometry.y, df_u.city):
+            ax.annotate(label, xy=(x, y), xytext=(3, 3), textcoords="offset points")
+        plt.title(f'top {numcities} by population')
+        plt.savefig('foo_3.png', dpi=300)
+        plt.savefig(f'../images/{"_".join(states)}_pop.png', dpi=300)
 
 
     def test_VANC(self):

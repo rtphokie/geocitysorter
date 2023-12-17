@@ -12,7 +12,8 @@ pd.set_option('display.max_rows', None)
 #
 
 def main(df_orig, rings=5, order='furthest', valuecolumn='population',
-         starting_lat=None, starting_lng=None, verbose=False, first='largest',
+         starting_lat=None, starting_lng=None, verbose=False, first='both',
+         citylist=[]
          ):
     '''
     offers a tool to help identify the right points to label on a map, not just by population or distance, but a
@@ -51,36 +52,48 @@ def main(df_orig, rings=5, order='furthest', valuecolumn='population',
                     central: the most populous city in the middle ring, seemed a useful option to include
     :param first:   capital: order state capitals first
                     largest: order the largest city first (default)
+    :poram citylist: list of cities to include at top of resulting list
 
-    :return: ordered pandas (or geopandas) dataframe
+    :return: ordered pandas (or geopandas) dataframe with two additional columns:
+             dist: kilometers to the closest city in the list above.
     '''
 
     if 'city' not in df_orig.columns or 'state' not in df_orig.columns:
         raise ValueError(f"expected city and state columns in dataframe passed")
-    if first not in ['capital', 'largest']:
+    if first not in ['capital', 'largest', 'both']:
         raise ValueError(f"{first} not supported for as the first city to include, please specify capital (default) or largest")
 
     df = df_orig.copy()  # we'll be chewing this dataframe down to nothing as we iterate, let's work on a copy
+    df.sort_values(by=[valuecolumn], ascending=False, inplace=True)
+    df.drop_duplicates(subset=["city", "state"], keep="first", inplace=True) # when capital is the larget city
+    orig_rows=df.shape[0]
+    if df.shape[0] != df_orig.shape[0]:
+        raise Exception(f"dataframe has {df_orig.shape[0] - df.shape[0]} duplicate rows.")
     # df.set_index(['city', 'state'], inplace=True)
     df['id'] = df.city + df.state
+    df.sort_values(by=[valuecolumn], ascending=False, inplace=True)
 
-    if first == 'largest':
-        df['capital']=False
-    else:
+    df_ordered = df[df.city.isin(citylist)]
+    df = df[~df.id.isin(df_ordered.id.unique())]
+    if first in ['largest', 'both']:
+        df_ordered = pd.concat([df_ordered, pd.DataFrame([df.iloc[0]])])
+    if first in ['capital', 'both']:
         df_capitals=pd.read_csv("../data/capitals.csv", on_bad_lines='skip', encoding = 'utf8')
-        # df_capitals['id'] = df_capitals.city + df_capitals.state
         df_capitals['capital']=True
-        # df = df.join(df_capitals, on='id', how='left')
-        df =  df.merge(df_capitals, left_on=['city','state'], right_on=['city','state'], how='left')
-        df.capital.fillna(False)
-    df.sort_values(by=['capital', valuecolumn], ascending=False, inplace=True)
+        df =  df.merge(df_capitals, left_on=['city','state'], right_on=['city','state', ], how='left')
+        df_ordered = pd.concat([df_ordered, df[df.capital == True]])
+    df.sort_values(by=[ valuecolumn], ascending=False, inplace=True)
 
     if starting_lat is None or starting_lng or None:
         starting_lat = starting_lng = 0.0
 
     # seed the ordered list (with all columns) with the passed coordinates, defaulted to one arbitrarily far away
-    df_ordered = pd.concat([pd.DataFrame(columns=df.columns),
-                            pd.DataFrame([{'latitude': starting_lat, 'longitude': starting_lng, 'id': 'starting point'}])])
+    if df_ordered.shape[0] == 0:
+        df_ordered = pd.concat([df_ordered, pd.DataFrame([{'latitude': starting_lat, 'longitude': starting_lng, 'id': 'starting point'}])])
+    else:
+        df = df[~df.id.isin(df_ordered.id.unique())]
+
+
 
     df_scratchpad = pd.DataFrame()
     calcs=0
@@ -135,17 +148,24 @@ def main(df_orig, rings=5, order='furthest', valuecolumn='population',
             df_scratchpad = df_scratchpad[~df_scratchpad.id.isin(df_ordered.id.unique())]
 
     # return ordered list, removing the columns and row we added along the way
-    if df_orig.shape[0] != df_ordered.shape[0]:
+    df_ordered.drop_duplicates(subset=["city", "state"], keep="first", inplace=True) # when capital is the larget city
+    if orig_rows != df_ordered.shape[0]:
+        print(df_orig[~df_orig.isin(df_ordered.city.unique())])
+        print(df_orig)
         raise Exception(f"something went wrong, {df_orig.shape[0]} rows were passed but resulting dataframe as {df_ordered.shape[0]} rows")
     if verbose:
         print(f"{calcs:,} calculations for {df_orig.shape[0]}")
 
-    df_result =  df_ordered[df_ordered.id!='starting point'].drop(columns=['ringnumber', 'dist', 'id', 'capital'])
+    df_result =  df_ordered[df_ordered.id!='starting point']
+    df_result['ratio'] = df_result[valuecolumn] / df_result[valuecolumn].max()
+    df_result.reset_index(inplace=True)
+    df_result.drop(columns=['ringnumber', 'id', 'capital', 'index'], inplace=True)
     if type(df_orig) == gpd.geodataframe.GeoDataFrame and type(df_result) != gpd.geodataframe.GeoDataFrame:
         # all this mucking about with the dataframes can cause cause GeoPandas dataframe to devolve into a
         # plain-ol Pandas dataframe, we should return the same type that was passed, restoring the same
         # CRS and geometry column passed
         df_result= gpd.GeoDataFrame(df_result, crs=df_orig.crs, geometry=df_result.geometry)
+
     return df_result
 
 
