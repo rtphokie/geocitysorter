@@ -8,14 +8,14 @@ Picking just the most populated cities to include can create a mess too. Metropo
 cities, often large themselves. Desert or mountainous areas also tend to have smaller
 populations creating large gaps
 
-<img src="images/Texas_pop.png" alt="drawing" width="300"/>
-<img src="images/West Virginia_pop.png" alt="drawing" width="300"/>
+<img src="https://raw.githubusercontent.com/rtphokie/geocitysorter/main/images/Texas_pop.png" alt="drawing" width="300"/>
+<img src="https://raw.githubusercontent.com/rtphokie/geocitysorter/main/images/West Virginia_pop.png" alt="drawing" width="300"/>
 
 The most meaningful maps are labeled with a set of recognizable cities while avoiding
 large gaps between them.
 
-<img src="images/Texas_geopop.png" alt="drawing" width="300"/>
-<img src="images/West Virginia_geopop.png" alt="drawing" width="300"/>
+<img src="https://raw.githubusercontent.com/rtphokie/geocitysorter/main/images/Texas_geopop.png" alt="drawing" width="300"/>
+<img src="https://raw.githubusercontent.com/rtphokie/geocitysorter/main/images/West Virginia_geopop.png" alt="drawing" width="300"/>
 
 This package tries to create that balance by ordering a dataframe with (at minimum) columns
 with the city, state, longitude, latitude and a column for the weighted value of that 
@@ -26,8 +26,7 @@ to be at the top of the resulting dataframe.
 
 It orders whatever points you give it, including across multiple states
 
-<img src="images/Texas_Oklahoma_geopop.png" alt="drawing" width="300"/>
-
+<img src="https://raw.githubusercontent.com/rtphokie/geocitysorter/main/images/Texas_Oklahoma_geopop.png" alt="drawing" width="300"/>
 
 ## How it works
 
