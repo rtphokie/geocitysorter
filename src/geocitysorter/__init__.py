@@ -1,30 +1,32 @@
 import geopandas as gpd
-from tqdm import tqdm
 import geopy.distance
 import pandas as pd
-from importlib import resources as impresources
+import pkg_resources
+from tqdm import tqdm
 
 from .census import census_incorporated_cities
 from .populations import get_census_data
-import pkg_resources
 
 resource_package = __name__
 pd.set_option('display.max_rows', None)
 
 
-def uscb_cities():
+def cities_us():
     resource_path = '/'.join(('geodata', 'incorporated_cities_uscensus.json'))  # Do not use os.path.join()
     inp_file = pkg_resources.resource_stream(resource_package, resource_path)
     return gpd.read_file(inp_file)
 
+
 def capital_cities():
     resource_path = '/'.join(('geodata', 'capitals.csv'))  # Do not use os.path.join()
     inp_file = pkg_resources.resource_stream(resource_package, resource_path)
-    return  pd.read_csv(inp_file, on_bad_lines='skip', encoding='utf8')
+    return pd.read_csv(inp_file, on_bad_lines='skip', encoding='utf8')
+
 
 def uscb_shapefiles():
-    # us = gpd.read_file('../data/cb_2018_us_state_500k/cb_2018_us_state_500k.shp')
-    resource_path = '/'.join(('geodata', 'cb_2018_us_state_500k', 'cb_2018_us_state_500k.shp'))  # Do not use os.path.join()
+    # download from https://www.census.gov/geographies/mapping-files/time-series/geo/carto-boundary-file.html
+    resource_path = '/'.join(
+        ('geodata', 'cb_2018_us_state_500k', 'cb_2018_us_state_500k.shp'))  # Do not use os.path.join()
     inp_file = pkg_resources.resource_stream(resource_package, resource_path)
     return gpd.read_file(inp_file.name)
 
@@ -32,8 +34,8 @@ def uscb_shapefiles():
 # https://packaging.python.org/en/latest/tutorials/packaging-projects/
 #
 
-def main(df_orig, rings=5, order='furthest', valuecolumn='population', starting_lat=None, starting_lng=None,
-         verbose=False, first='both', citylist=[]):
+def order_geo_dataframe(df_orig, rings=5, order='furthest', valuecolumn='population', starting_lat=None,
+                        starting_lng=None, verbose=False, first='both', citylist=[]):
     '''
     offers a tool to help identify the right points to label on a map, not just by population or distance, but a
     combination of the two.
