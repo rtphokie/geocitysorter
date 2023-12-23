@@ -54,8 +54,10 @@ did thy pick that city?"
 ### Syntax
 
 ```
-def main(df_orig, rings=5, order='furthest', valuecolumn='population', starting_lat=None, starting_lng=None,
-         verbose=False, first='both', citylist=[]):
+def order_geo_dataframe(df_orig, rings=5, order='furthest', 
+                        valuecolumn='population', 
+                        starting_lat=None, starting_lng=None, 
+                        verbose=False, first='both', citylist=[]):
 ```
 
 #### Options
