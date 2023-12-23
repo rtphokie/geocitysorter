@@ -29,15 +29,15 @@ class TestDataFiles(unittest.TestCase):
         self.assertTrue('state' in gpd.columns)
 
 
-class SomeTest(unittest.TestCase):
+class TestGeoSorting(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
-        super(SomeTest, cls).tearDownClass()
+        super(TestGeoSorting, cls).tearDownClass()
         # os.system('pip uninstall -y geocitysorter')
 
     @classmethod
     def setUpClass(cls):
-        super(SomeTest, cls).setUpClass()
+        super(TestGeoSorting, cls).setUpClass()
         # get info on all US cities once, use it across multiple tests
         cls.gdf_us = census_incorporated_cities()
 
