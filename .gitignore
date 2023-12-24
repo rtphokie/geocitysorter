@@ -162,3 +162,5 @@ cython_debug/
 /venv/
 .idea/
 **/cache/
+/images/
+.DS_Store
