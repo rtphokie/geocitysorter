@@ -8,6 +8,8 @@ import pandas as pd
 import requests
 import requests_cache
 
+from .geocitysorter import capital_cities
+
 session = requests_cache.CachedSession('./cache/http_census_gov.cache')
 
 
@@ -39,43 +41,42 @@ def census_incorporated_cities(crs="EPSG:4326",
     os.makedirs('cache', exist_ok=True)
     picklefile = 'cache/census_incorporated_cities.pickle'
     try:
+        raise
         with open(picklefile, 'rb') as fp:
             gdf = pickle.load(fp)
     except:
         df_pop = _get_census_data()
+
         df_pop['population'] = df_pop[_most_recent_population_column(df_pop.columns)]
 
         df_coords = _get_census_incorporated_places()
 
         df = pd.merge(df_pop, df_coords, on=['NAME', 'STNAME'], how='left')
-        df.rename(columns={"BASENAME": "city", "STNAME": "state",
-                           "CENTLAT": "latitude", "CENTLON": "longitude",
-                           }, errors="raise", inplace=True)
+        df.rename(columns={"BASENAME": "city", "STNAME": "state", "CENTLAT": "latitude", "CENTLON": "longitude", },
+                  errors="raise", inplace=True)
         df = df[columnstokeep]
 
-        df.drop_duplicates(
-            inplace=True)  # USCB population data includes some breakouts by county and other methods that result in duplicate data when we drop the other fields we dont need
+        df.drop_duplicates(inplace=True)  # USCB population data includes some breakouts by county and other methods that result in duplicate data when we drop the other fields we dont need
         df.dropna(subset=['longitude', 'latitude'], inplace=True)
         df = df.dropna()
-        df.city=df.city.str.replace(' County unified government (balance)', '')
-        df.city=df.city.str.replace(' County metro government (balance)', '')
-        df.city=df.city.str.replace(' metropolitan government (balance)', '')
-        df.city=df.city.str.replace(' County consolidated government (balance)', '')
-        df.city=df.city.str.replace(' (balance)', '')
-        df.city=df.city.str.replace('Athens-Clarke', 'Athens')
-        df.city=df.city.str.replace('Augusta-Richmond', 'Augusta')
-        df.city=df.city.str.replace('Cusseta-Chattahoochee County', 'Cusseta')
-        df.city=df.city.str.replace('Helena-West Helena', 'Helena')
-        df.city=df.city.str.replace('Nashville-Davidson', 'Nashville')
-        df.city=df.city.str.replace('Louisville/Jefferson', 'Louisville')
-        df.city=df.city.str.replace('Hartsville/Trousdale County', 'Hartsiville')
-        foo=  df[df['city'].str.contains('metro')]
-        foo=  df[df['city'].str.contains('(balance)')]
-        foo=  df[df['city'].str.contains('Athens')]
-        foo=  df[df['city'].str.contains('Louisville')]
-        foo=  df[df['city'].str.contains('Nashville')]
-        foo=  df[df['city'].str.contains('-')]
-        foo=  df[df['city'].str.contains('/')]
+        df.city = df.city.str.replace(' County unified government (balance)', '')
+        df.city = df.city.str.replace(' County metro government (balance)', '')
+        df.city = df.city.str.replace(' metropolitan government (balance)', '')
+        df.city = df.city.str.replace(' County consolidated government (balance)', '')
+        df.city = df.city.str.replace(' (balance)', '')
+        df.city = df.city.str.replace('Athens-Clarke', 'Athens')
+        df.city = df.city.str.replace('Augusta-Richmond', 'Augusta')
+        df.city = df.city.str.replace('Cusseta-Chattahoochee County', 'Cusseta')
+        df.city = df.city.str.replace('Helena-West Helena', 'Helena')
+        df.city = df.city.str.replace('Nashville-Davidson', 'Nashville')
+        df.city = df.city.str.replace('Louisville/Jefferson', 'Louisville')
+        df.city = df.city.str.replace('Hartsville/Trousdale County', 'Hartsiville')
+        #  note state capitals
+        df_capitals = capital_cities()
+        df_capitals['capital'] = 'state'
+        df = df.merge(df_capitals, left_on=['city', 'state'], right_on=['city', 'state', ], how='left')
+        i = df[df['state'] == 'District of Columbia'].index.values[0]
+        df.loc[i, "capital"] = "federal"
         gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.longitude, df.latitude), crs=crs)
         with open(picklefile, 'wb') as fp:
             pickle.dump(gdf, fp)
