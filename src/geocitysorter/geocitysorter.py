@@ -4,9 +4,6 @@ import pandas as pd
 import pkg_resources
 from tqdm import tqdm
 
-from .census import census_incorporated_cities
-from .populations import get_census_data
-
 resource_package = __name__
 pd.set_option('display.max_rows', None)
 
@@ -34,7 +31,7 @@ def uscb_shapefiles():
 # https://packaging.python.org/en/latest/tutorials/packaging-projects/
 #
 
-def order_geo_dataframe(df_orig, rings=5, order='furthest', valuecolumn='population', starting_lat=None,
+def order_geo_dataframe(df_orig, rings=3, order='furthest', valuecolumn='population', starting_lat=None,
                         starting_lng=None, verbose=False, first='both', citylist=[]):
     '''
     offers a tool to help identify the right points to label on a map, not just by population or distance, but a
@@ -63,7 +60,7 @@ def order_geo_dataframe(df_orig, rings=5, order='furthest', valuecolumn='populat
                           GeoPandas dataframe
                     todo: value column as an option, defaulted to population
     :param rings:   number of rings to logically draw around each city when generalizing distance between a given city and
-                    the others that have already been ordered as more "relevant".  (default: 5)
+                    the others that have already been ordered as more "relevant".  (default: 3)
                     fewer rings favor larger cities
     :param order:   how the next point is selected
                     furthest: the most populous city in the furthest ring, useful for intelligently ordering
@@ -86,9 +83,12 @@ def order_geo_dataframe(df_orig, rings=5, order='furthest', valuecolumn='populat
 
     df = df_orig.copy()  # we'll be chewing this dataframe down to nothing as we iterate, let's work on a copy
     df.sort_values(by=[valuecolumn], ascending=False, inplace=True)
+    df_orig.drop_duplicates(subset=["city", "state"], keep="first", inplace=True)  # when capital is the larget city
     df.drop_duplicates(subset=["city", "state"], keep="first", inplace=True)  # when capital is the larget city
     orig_rows = df.shape[0]
     if df.shape[0] != df_orig.shape[0]:
+        df.to_csv('df.csv')
+        df_orig.to_csv('df_orig.csv')
         raise Exception(f"dataframe has {df_orig.shape[0] - df.shape[0]} duplicate rows.")
     # df.set_index(['city', 'state'], inplace=True)
     df['id'] = df.city + df.state
@@ -99,10 +99,7 @@ def order_geo_dataframe(df_orig, rings=5, order='furthest', valuecolumn='populat
     if first in ['largest', 'both']:
         df_ordered = pd.concat([df_ordered, pd.DataFrame([df.iloc[0]])])
     if first in ['capital', 'both']:
-        df_capitals = capital_cities()
-        df_capitals['capital'] = True
-        df = df.merge(df_capitals, left_on=['city', 'state'], right_on=['city', 'state', ], how='left')
-        df_ordered = pd.concat([df_ordered, df[df.capital == True]])
+        df_ordered = pd.concat([df_ordered, df[~df.capital.isna()]])
     df.sort_values(by=[valuecolumn], ascending=False, inplace=True)
 
     if starting_lat is None or starting_lng or None:

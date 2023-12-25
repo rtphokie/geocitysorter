@@ -1,6 +1,6 @@
 [project]
 name = "geocitysorter"
-version = "0.9.4"
+version = "0.9.9"
 authors = [
     { name = "Tony Rice", email = "rtphokie+pypi@gmail.com" },
 ]
@@ -15,9 +15,15 @@ classifiers = [
 dependencies = [
     "geopandas>=0.14.1",
     "requests>=2.31.0",
-    "requests_cache",
+    "requests-cache>=1.1.1",
     "geopy>=2.4.1"
 ]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+geocitysorter = ["*.csv", '*.json']
 
 [project.urls]
 Homepage = "https://github.com/rtphokie/geocitysorter"

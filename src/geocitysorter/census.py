@@ -9,8 +9,10 @@ import requests
 import requests_cache
 
 from .geocitysorter import capital_cities
+from platformdirs import user_cache_dir
 
-session = requests_cache.CachedSession('./cache/http_census_gov.cache')
+cachedir = user_cache_dir("geocitysorter", "trice")
+session = requests_cache.CachedSession(f'{cachedir}/http_census_gov.cache')
 
 
 def _most_recent_population_column(colstoconsider):
@@ -38,10 +40,8 @@ def census_incorporated_cities(crs="EPSG:4326",
     :param columnstokeep: columns to be returned, defaults to the list above
     :return:GeoPandas Dataframe of incorporated cities
     '''
-    os.makedirs('cache', exist_ok=True)
-    picklefile = 'cache/census_incorporated_cities.pickle'
+    picklefile = f'{cachedir}/census_incorporated_cities.pickle'
     try:
-        raise
         with open(picklefile, 'rb') as fp:
             gdf = pickle.load(fp)
     except:
@@ -94,8 +94,6 @@ def _get_census_data(
     :return: pandas dataframe with all dat
     '''
 
-    os.makedirs('cache', exist_ok=True)
-
     r = session.get(url)
     if r.ok:
         df_populations = pd.read_csv(io.StringIO(r.text))
@@ -116,8 +114,7 @@ def _get_census_incorporated_places(url='https://tigerweb.geo.census.gov/tigerwe
     :param url:
     :return: pandas dataframe (not a GeoPandas dataframe)
     '''
-    os.makedirs('cache', exist_ok=True)
-    picklefile = 'cache/_get_census_incorporated_places.pickle'
+    picklefile = f'{cachedir}/get_census_incorporated_places.pickle'
     try:
         with open(picklefile, 'rb') as fp:
             df_incorporated_places = pickle.load(fp)
@@ -149,10 +146,9 @@ def _get_census_incorporated_places(url='https://tigerweb.geo.census.gov/tigerwe
 
 def _download_file(url):
     # downloads a binary or text file from a URL, caching it locally
-    os.makedirs('cache', exist_ok=True)
-    local_filename = f"cache/{os.path.basename(url)}"
+    local_filename = f"{cachedir}/{os.path.basename(url)}"
     result = local_filename
-    local_extraction_dir = f"cache/{os.path.splitext(os.path.basename(os.path.basename(url)))[0]}"
+    local_extraction_dir = f"{cachedir}/{os.path.splitext(os.path.basename(os.path.basename(url)))[0]}"
 
     if not os.path.exists(local_filename):
         response = requests.get(url)

@@ -1,11 +1,8 @@
-import pickle
 import unittest
 
-import geopandas as gpd
-import geopy
 import pandas as pd
 
-from geocitysorter import census_incorporated_cities, order_geo_dataframe, cities_us, capital_cities, uscb_shapefiles
+from geocitysorter import census_incorporated_cities, order_geo_dataframe, cities_us, capital_cities
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', None)
@@ -58,29 +55,39 @@ class TestGeoSorting(unittest.TestCase):
 
     def test_NC(self):
         gdf = self.gdf_us[self.gdf_us.state == 'North Carolina']
-        gdf_ordered = order_geo_dataframe(gdf)
+        gdf_ordered = order_geo_dataframe(gdf, verbose=True, rings=2)
         self.assertEqual(gdf.shape[0], gdf_ordered.shape[0])
 
         first_10_cities = list(gdf_ordered.city[:10])
-        for x in ['Charlotte', 'Raleigh', 'Murphy', 'Boone', 'Kill Devil Hills']:
+        for x in ['Charlotte', 'Raleigh', 'Waynesville', 'Elizabeth City', 'Wilmington']:
             self.assertTrue(x in first_10_cities, f'expected {x} in first 10 cities')
 
     def test_CA(self):
         gdf = self.gdf_us[self.gdf_us.state == 'California']
-        gdf_ordered = order_geo_dataframe(gdf)
+        gdf_ordered = order_geo_dataframe(gdf, verbose=True, rings=2)
         self.assertEqual(gdf.shape[0], gdf_ordered.shape[0])
 
         first_10_cities = list(gdf_ordered.city[:10])
-        for x in ['Los Angeles', 'Sacramento', 'Salinas', 'Needles', 'Crescent City']:
+        for x in ['Los Angeles', 'Sacramento', 'San Diego', 'Soledad', 'Eureka']:
+            self.assertTrue(x in first_10_cities, f'expected {x} in first 10 cities')
+
+    def test_TX(self):
+        gdf = self.gdf_us[self.gdf_us.state == 'Texas']
+        gdf_ordered = order_geo_dataframe(gdf, verbose=True)
+        self.assertEqual(gdf.shape[0], gdf_ordered.shape[0])
+
+        first_10_cities = list(gdf_ordered.city[:10])
+        for x in ['Houston', 'Austin', 'El Paso', 'Midland', 'Texarkana']:
             self.assertTrue(x in first_10_cities, f'expected {x} in first 10 cities')
 
     def test_WY(self):
         gdf = self.gdf_us[self.gdf_us.state == 'Wyoming']
-        gdf_ordered = order_geo_dataframe(gdf)
+        gdf_ordered = order_geo_dataframe(gdf, verbose=True, rings=2)
         self.assertEqual(gdf.shape[0], gdf_ordered.shape[0])
 
         first_10_cities = list(gdf_ordered.city[:10])
-        for x in ['Cheyenne', 'Evanston', 'Jackson', 'Sundance', 'Green River']:
+
+        for x in ['Cheyenne', 'Evanston', 'Jackson', 'Sheridan', 'Cody']:
             self.assertTrue(x in first_10_cities, f'expected {x} in first 10 cities')
 
 
