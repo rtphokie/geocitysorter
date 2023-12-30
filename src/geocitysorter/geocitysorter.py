@@ -1,5 +1,7 @@
 import geopandas as gpd
 import geopy.distance
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 import pandas as pd
 import pkg_resources
 from tqdm import tqdm
@@ -74,6 +76,8 @@ def order_geo_dataframe(df_orig, rings=3, order='furthest', valuecolumn='populat
     :return: ordered pandas (or geopandas) dataframe with two additional columns:
              dist: kilometers to the closest city in the list above.
     '''
+    if df_orig.shape[0] <= 0:
+        return df_orig
 
     if 'city' not in df_orig.columns or 'state' not in df_orig.columns:
         raise ValueError(f"expected city and state columns in dataframe passed")
@@ -97,10 +101,17 @@ def order_geo_dataframe(df_orig, rings=3, order='furthest', valuecolumn='populat
     df_ordered = df[df.city.isin(citylist)]
     df = df[~df.id.isin(df_ordered.id.unique())]
     if first in ['largest', 'both']:
-        df_ordered = pd.concat([df_ordered, pd.DataFrame([df.iloc[0]])])
+        if df_ordered.shape[0] > 0:
+            df_ordered = pd.concat([df_ordered, pd.DataFrame([df.iloc[0]])])
+        else:
+            df_ordered = pd.DataFrame([df.iloc[0]])
     if first in ['capital', 'both']:
-        df_ordered = pd.concat([df_ordered, df[~df.capital.isna()]])
+        if df_ordered.shape[0] > 0:
+            df_ordered = pd.concat([df_ordered, df[~df.capital.isna()]])
+        else:
+            df_ordered = df[~df.capital.isna()].copy()
     df.sort_values(by=[valuecolumn], ascending=False, inplace=True)
+    df_ordered['ringnumber']=None
 
     if starting_lat is None or starting_lng or None:
         starting_lat = starting_lng = 0.0
@@ -144,7 +155,6 @@ def order_geo_dataframe(df_orig, rings=3, order='furthest', valuecolumn='populat
         # convert that distance to a numbered ring (bin), larger ring numbers are further away
         # round function forces a single ring
         df_scratchpad.ringnumber = round(df_scratchpad.dist / ringwidth)
-
         df_scratchpad.sort_values(by=['capital', 'ringnumber', valuecolumn], ascending=False, inplace=True)
 
         if order == 'furthest':
@@ -155,7 +165,15 @@ def order_geo_dataframe(df_orig, rings=3, order='furthest', valuecolumn='populat
             raise ValueError(f"{order} not supported, please specify one of nearest (default), furthest, or central")
 
         # append the city found to be next in the order
-        df_ordered = pd.concat([df_ordered, pd.DataFrame([furthest_most_populous_row])])
+        df_newrow = pd.DataFrame([furthest_most_populous_row])
+        if not df_newrow.empty and not df_ordered.empty:
+            df_ordered = pd.concat([df_ordered, df_newrow], axis=0)
+        elif not df_ordered.empty:
+            df_ordered = df_ordered.copy()
+        elif not df_newrow.empty:
+            df_ordered = df_newrow.copy()
+        else:
+            df_ordered = pd.DataFrame()
 
         # remove cities already ordered from the todo list, and the running list of distances to cities yet to be ordered
         df = df[~df.id.isin(df_ordered.id.unique())]
@@ -166,7 +184,7 @@ def order_geo_dataframe(df_orig, rings=3, order='furthest', valuecolumn='populat
             df_scratchpad = df_scratchpad[~df_scratchpad.id.isin(df_ordered.id.unique())]
         if verbose:
             pbar.update(1)
-            pbar.set_description(furthest_most_populous_row.city)
+            pbar.set_description(f"order_geo_dataframe {furthest_most_populous_row.city:40}")
 
     # return ordered list, removing the columns and row we added along the way
     df_ordered.drop_duplicates(subset=["city", "state"], keep="first", inplace=True)  # when capital is the larget city
