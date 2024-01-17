@@ -1,6 +1,6 @@
 [project]
 name = "geocitysorter"
-version = "0.9.11"
+version = "0.9.12"
 authors = [
     { name = "Tony Rice", email = "rtphokie+pypi@gmail.com" },
 ]
