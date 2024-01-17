@@ -55,7 +55,8 @@ class TestGeoSorting(unittest.TestCase):
 
     def test_NC(self):
         gdf = self.gdf_us[self.gdf_us.state == 'North Carolina']
-        gdf_ordered = order_geo_dataframe(gdf, verbose=True, rings=2)
+        gdf=gdf[gdf.population > 0]
+        gdf_ordered = order_geo_dataframe(gdf, verbose=True,  first='both',rings=2)
         self.assertEqual(gdf.shape[0], gdf_ordered.shape[0])
 
         first_10_cities = list(gdf_ordered.city[:10])
@@ -64,7 +65,7 @@ class TestGeoSorting(unittest.TestCase):
 
     def test_CA(self):
         gdf = self.gdf_us[self.gdf_us.state == 'California']
-        gdf_ordered = order_geo_dataframe(gdf, verbose=True, rings=2)
+        gdf_ordered = order_geo_dataframe(gdf, verbose=True, first='both', rings=2)
         self.assertEqual(gdf.shape[0], gdf_ordered.shape[0])
 
         first_10_cities = list(gdf_ordered.city[:10])

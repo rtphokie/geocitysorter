@@ -118,6 +118,8 @@ def _get_census_incorporated_places(url='https://tigerweb.geo.census.gov/tigerwe
     try:
         with open(picklefile, 'rb') as fp:
             df_incorporated_places = pickle.load(fp)
+        if df_incorporated_places.shape[0] < 9999:
+            raise ValueError
     except:
         r = session.get(url)
         if not r.ok:
@@ -125,7 +127,7 @@ def _get_census_incorporated_places(url='https://tigerweb.geo.census.gov/tigerwe
         atoms = r.text.split(' <a href="')
         df_incorporated_places = pd.DataFrame()
         for atom in atoms:
-            if atom.startswith('Files/acs23/'):
+            if atom.startswith('Files/'):
                 atoms2 = atom.split('">')
                 state, __ = atoms2[1].split('</a')
                 state = ' '.join(state.split())  # collapse whitespace
@@ -142,6 +144,7 @@ def _get_census_incorporated_places(url='https://tigerweb.geo.census.gov/tigerwe
             pickle.dump(df_incorporated_places, fp)
 
     return df_incorporated_places
+
 
 
 def _download_file(url):
